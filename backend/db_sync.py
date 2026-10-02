@@ -104,8 +104,17 @@ def close_session(db, session_id, duration_ms):
                 "closed": True,
                 "duration_ms": duration_ms
             })
-        except Exception as fe:
-            print(f"[Firestore Close Sync Error]: {fe}")
+def delete_session(db, session_id):
+    db.query(CommandData).filter(CommandData.session_id == session_id).delete()
+    db.query(DeceptionData).filter(DeceptionData.session_id == session_id).delete()
+    db.query(SessionData).filter(SessionData.id == session_id).delete()
+    db.commit()
+
+def clear_all_sessions(db):
+    db.query(CommandData).delete()
+    db.query(DeceptionData).delete()
+    db.query(SessionData).delete()
+    db.commit()
 
 def get_all_sessions(db):
     sessions = db.query(SessionData).all()

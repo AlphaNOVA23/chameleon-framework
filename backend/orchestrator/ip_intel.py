@@ -3,9 +3,11 @@ import ipaddress
 
 # Simulated Geolocation & Threat Intelligence DB for local demo & offline reliability
 IP_GEOLOCATION_DB = {
+    "172.": {"country": "Local Container", "code": "US", "flag": "🐳", "isp": "Docker Network Gateway", "risk": "Local Test", "threat_score": 10},
+    "127.": {"country": "Localhost", "code": "US", "flag": "💻", "isp": "Local Loopback", "risk": "Local Test", "threat_score": 0},
+    "::1": {"country": "Localhost IPv6", "code": "US", "flag": "💻", "isp": "Local Loopback", "risk": "Local Test", "threat_score": 0},
     "192.168": {"country": "Internal Subnet", "code": "US", "flag": "🇺🇸", "isp": "Corporate LAN", "risk": "Low", "threat_score": 5},
     "10.0": {"country": "Private Network", "code": "US", "flag": "🇺🇸", "isp": "Intranet DMZ", "risk": "Low", "threat_score": 10},
-    "127.0": {"country": "Localhost", "code": "US", "flag": "🇺🇸", "isp": "Loopback", "risk": "Low", "threat_score": 0},
     "45.": {"country": "Russia", "code": "RU", "flag": "🇷🇺", "isp": "AS14061 DigitalOcean LLC", "risk": "High Risk", "threat_score": 92},
     "185.": {"country": "Germany", "code": "DE", "flag": "🇩🇪", "isp": "AS24940 Hetzner Online GmbH", "risk": "Moderate", "threat_score": 68},
     "103.": {"country": "China", "code": "CN", "flag": "🇨🇳", "isp": "AS4134 CHINANET-BACKBONE", "risk": "High Risk", "threat_score": 96},

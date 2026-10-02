@@ -130,6 +130,27 @@ def register_sensor(sensor_data: dict = Body(...)):
     SENSOR_NODES.append(new_sensor)
     return {"status": "registered", "sensor": new_sensor}
 
+@app.delete("/api/sessions/{session_id}")
+def delete_single_session(session_id: str):
+    db = SessionLocal()
+    try:
+        if session_id in sessions:
+            del sessions[session_id]
+        db_sync.delete_session(db, session_id)
+        return {"status": "deleted", "session_id": session_id}
+    finally:
+        db.close()
+
+@app.post("/api/sessions/clear")
+def clear_sessions_history():
+    db = SessionLocal()
+    try:
+        sessions.clear()
+        db_sync.clear_all_sessions(db)
+        return {"status": "cleared"}
+    finally:
+        db.close()
+
 from report_generator import generate_pdf_report
 
 @app.get("/api/reports/pdf")
