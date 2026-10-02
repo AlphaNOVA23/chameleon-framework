@@ -44,7 +44,7 @@ def run_ssh_bot(host="127.0.0.1", port=22):
                 
         time.sleep(0.5)
         ssh.close()
-        print("\n[✓] Single-Session SSH Bot Attack Completed Successfully!")
+        print("\n[SUCCESS] Single-Session SSH Bot Attack Completed Successfully!")
         print("    -> 1 Single Session ID created")
         print("    -> 0 Password prompts required")
         print("    -> Inter-Arrival Time ~0.12s -> Classified as TIER_1_BOT")
