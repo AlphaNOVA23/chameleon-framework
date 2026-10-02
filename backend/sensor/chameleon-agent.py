@@ -14,13 +14,14 @@ import urllib.parse
 def parse_args():
     parser = argparse.ArgumentParser(description="Chameleon Remote Sensor Agent")
     parser.add_argument("--token", required=True, help="Sensor authentication token")
+    parser.add_argument("--user_id", default="admin", help="Tenant user account ID / email")
     parser.add_argument("--server", default="http://localhost:8000", help="Chameleon backend server URL")
     parser.add_argument("--logfile", default="/var/log/cowrie/cowrie.json", help="Path to cowrie.json log")
     return parser.parse_args()
 
-def send_event(server, token, event):
+def send_event(server, token, event, user_id="admin"):
     url = f"{server.rstrip('/')}/api/ingest"
-    payload = json.dumps({"token": token, "event": event}).encode("utf-8")
+    payload = json.dumps({"token": token, "user_id": user_id, "event": event}).encode("utf-8")
     req = urllib.request.Request(
         url,
         data=payload,
@@ -61,7 +62,7 @@ def main():
     print(f"[Chameleon-Agent] Logfile: {args.logfile}")
     
     for event in tail_file(args.logfile):
-        send_event(args.server, args.token, event)
+        send_event(args.server, args.token, event, user_id=args.user_id)
 
 if __name__ == "__main__":
     main()

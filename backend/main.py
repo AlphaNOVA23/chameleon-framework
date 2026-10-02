@@ -213,7 +213,7 @@ def export_reports(format: str = "json"):
 # LOG TAILING & INGESTION LOOP
 # ============================================================
 
-async def process_log_event(event: dict, db):
+async def process_log_event(event: dict, db, user_id: str = "admin"):
     sid = event.get("session", "")
     eid = event.get("eventid", "")
     if not sid or not eid:
@@ -362,13 +362,14 @@ async def tail_logs():
 @app.post("/api/ingest")
 async def ingest_event(payload: dict = Body(...)):
     token = payload.get("token")
+    user_id = payload.get("user_id") or payload.get("user") or "admin"
     event = payload.get("event")
     if not event or not isinstance(event, dict):
         raise HTTPException(status_code=400, detail="Invalid event payload")
         
     db = SessionLocal()
     try:
-        await process_log_event(event, db)
+        await process_log_event(event, db, user_id=user_id)
     finally:
         db.close()
         
