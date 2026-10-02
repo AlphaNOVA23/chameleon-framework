@@ -201,6 +201,7 @@ async def process_log_event(event: dict, db):
     if sid not in sessions:
         src_ip = event.get("src_ip", "?")
         ip_intel = enrich_ip(src_ip)
+        conn_ts = event.get("timestamp", "")
         sessions[sid] = {
             "src_ip": src_ip,
             "ip_intel": ip_intel,
@@ -211,10 +212,14 @@ async def process_log_event(event: dict, db):
             "cmds": [],
             "tier": "UNKNOWN",
             "cmd_timestamps": [],
-            "connected_at": event.get("timestamp", ""),
+            "connected_at": conn_ts,
             "closed": False,
             "duration_ms": 0
         }
+        try:
+            db_sync.get_or_create_session(db, sid, src_ip, conn_ts)
+        except Exception as dbe:
+            print(f"DB error (session auto-create): {dbe}")
         
     s = sessions[sid]
     

@@ -46,6 +46,28 @@ https://leon-1234d.web.app
 
     print(f"[Email Alert] Dispatching security alert to {recipient_email} for IP {src_ip}...")
 
+    # Send Discord / Slack Webhook Notification if configured (NO PASSWORD REQUIRED)
+    webhook_url = settings.get("webhook_url") or os.environ.get("WEBHOOK_URL", "")
+    if webhook_url:
+        try:
+            import urllib.request, json
+            payload = {
+                "embeds": [{
+                    "title": f"🚨 CHAMELEON ALERT: {classification} Threat",
+                    "description": f"**Attacker IP:** `{src_ip}`\n**Session ID:** `{session_id}`\n**Executed Command:** `{command or 'Session Initiated'}`\n\n[View Live Threat Radar](https://chameleon-soc.web.app)",
+                    "color": 15158332 if "HUMAN" in classification else 10181046
+                }]
+            }
+            req = urllib.request.Request(
+                webhook_url,
+                data=json.dumps(payload).encode('utf-8'),
+                headers={"Content-Type": "application/json", "User-Agent": "Chameleon-Alert-Bot"}
+            )
+            urllib.request.urlopen(req, timeout=5)
+            print(f"[Webhook Alert] Instant alert pushed to Webhook for IP {src_ip}")
+        except Exception as we:
+            print(f"[Webhook Alert Failed]: {we}")
+
     # If SMTP credentials are provided, send live email; otherwise log alert payload
     if smtp_user and smtp_pass:
         try:
