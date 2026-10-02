@@ -8,14 +8,25 @@ try:
     import firebase_admin
     from firebase_admin import credentials, firestore
 
+    cred_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
     cred_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "serviceAccountKey.json")
-    if os.path.exists(cred_path):
+    
+    if cred_json:
+        try:
+            cred_dict = json.loads(cred_json)
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+            db_client = firestore.client()
+            print("[Firestore] Firebase Admin initialized successfully via FIREBASE_SERVICE_ACCOUNT_JSON env var!")
+        except Exception as e:
+            print(f"[Firestore] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON: {e}")
+    elif os.path.exists(cred_path):
         cred = credentials.Certificate(cred_path)
         firebase_admin.initialize_app(cred)
         db_client = firestore.client()
         print("[Firestore] Firebase Admin SDK initialized successfully with serviceAccountKey.json")
     else:
-        print("[Firestore] No serviceAccountKey.json found. Firestore operating in simulated multi-tenant mode.")
+        print("[Firestore] No serviceAccountKey found. Operating in local SQLite DB mode.")
 except Exception as e:
     print(f"[Firestore] Initialization notice: {e}")
 
