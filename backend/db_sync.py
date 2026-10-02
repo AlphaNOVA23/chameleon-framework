@@ -2,7 +2,7 @@ import datetime
 from database import SessionLocal, SessionData, CommandData, DeceptionData
 import firestore_db
 
-def get_or_create_session(db, session_id, src_ip, connected_at_str):
+def get_or_create_session(db, session_id, src_ip, connected_at_str, user_id: str = "default_user"):
     session = db.query(SessionData).filter(SessionData.id == session_id).first()
     if not session:
         try:
@@ -21,7 +21,7 @@ def get_or_create_session(db, session_id, src_ip, connected_at_str):
 
     # Sync to Firestore
     try:
-        firestore_db.save_session_event("default_user", session_id, {
+        firestore_db.save_session_event(user_id, session_id, {
             "src_ip": src_ip,
             "connected_at": connected_at_str,
             "classification": session.classification or "UNKNOWN",
@@ -32,7 +32,7 @@ def get_or_create_session(db, session_id, src_ip, connected_at_str):
 
     return session
 
-def update_session_metrics(db, session_id, classification, mean_iat, variance_iat):
+def update_session_metrics(db, session_id, classification, mean_iat, variance_iat, user_id: str = "default_user"):
     session = db.query(SessionData).filter(SessionData.id == session_id).first()
     if session:
         session.classification = classification
@@ -41,7 +41,7 @@ def update_session_metrics(db, session_id, classification, mean_iat, variance_ia
         db.commit()
 
         try:
-            firestore_db.save_session_event("default_user", session_id, {
+            firestore_db.save_session_event(user_id, session_id, {
                 "classification": classification,
                 "mean_iat": mean_iat,
                 "variance_iat": variance_iat
@@ -49,7 +49,7 @@ def update_session_metrics(db, session_id, classification, mean_iat, variance_ia
         except Exception as fe:
             print(f"[Firestore Metrics Sync Error]: {fe}")
 
-def add_command(db, session_id, text, timestamp_str, intent_tactic, intent_severity):
+def add_command(db, session_id, text, timestamp_str, intent_tactic, intent_severity, user_id: str = "default_user"):
     try:
         ts = datetime.datetime.fromisoformat(timestamp_str.replace("Z", "+00:00")) if timestamp_str else datetime.datetime.utcnow()
     except:
@@ -74,7 +74,7 @@ def add_command(db, session_id, text, timestamp_str, intent_tactic, intent_sever
         db.commit()
 
         try:
-            firestore_db.add_command_event("default_user", session_id, {
+            firestore_db.add_command_event(user_id, session_id, {
                 "text": text,
                 "timestamp": timestamp_str,
                 "intent_tactic": intent_tactic,

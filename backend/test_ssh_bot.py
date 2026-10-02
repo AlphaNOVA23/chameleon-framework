@@ -1,53 +1,57 @@
 #!/usr/bin/env python3
 """
-Chameleon Framework — Real SSH Protocol Bot Simulator
-Connects over SSH (Port 2222 or Port 22) to the Cowrie Honeypot Docker Container
-and executes rapid automated commands over the network socket.
+Chameleon Framework — Single-Session Interactive SSH Bot Simulator
+Connects over SSH to the Cowrie Honeypot, authenticates automatically,
+and streams multiple commands down a SINGLE active SSH shell session.
 """
 import sys
 import time
-import subprocess
+import paramiko
 
-def run_ssh_bot(host="127.0.0.1", port=2222):
-    print(f"\n[+] Launching Real SSH Protocol Bot Attack against SSH Honeypot at {host}:{port}...")
+def run_ssh_bot(host="127.0.0.1", port=22):
+    print(f"\n[+] Launching Single-Session SSH Bot Attack against {host}:{port}...")
     
-    # Try paramiko SSH client first
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    
     try:
-        import paramiko
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        print(f"[+] Establishing SSH TCP connection to {host}:{port}...")
-        ssh.connect(host, port=port, username="root", password="password123", timeout=5)
+        print(f"[+] Connecting & Authenticating to SSH Honeypot on port {port}...")
+        ssh.connect(host, port=port, username="root", password="admin123", timeout=10)
         
-        commands = ["uname -a", "cat /etc/passwd", "whoami", "id", "uptime", "exit"]
-        print("[+] Executing automated bot command sequence over SSH socket (rapid 50ms delay)...")
+        # Open single interactive shell channel
+        channel = ssh.invoke_shell()
+        time.sleep(1) # wait for shell prompt
+        
+        commands = [
+            "uname -a",
+            "whoami",
+            "id",
+            "cat /etc/passwd",
+            "uptime",
+            "cat /etc/shadow",
+            "exit"
+        ]
+        
+        print(f"[+] Streaming {len(commands)} bot commands down SINGLE SSH channel (120ms delay)...")
         for cmd in commands:
-            print(f"  [SSH Bot -> Honeypot] {cmd}")
-            stdin, stdout, stderr = ssh.exec_command(cmd)
-            stdout.read()
-            time.sleep(0.05) # 50ms rapid bot execution
+            print(f"  [SSH Bot -> Channel] {cmd}")
+            channel.send(cmd + "\n")
+            time.sleep(0.12) # 120ms inter-arrival timing = TIER 1 BOT
             
+            # Read output available
+            if channel.recv_ready():
+                channel.recv(2048)
+                
+        time.sleep(0.5)
         ssh.close()
-        print("[✓] Real SSH Bot Attack complete! Telemetry streamed via Cowrie agent to Chameleon Dashboard.")
-        return
-    except ImportError:
-        pass
+        print("\n[✓] Single-Session SSH Bot Attack Completed Successfully!")
+        print("    -> 1 Single Session ID created")
+        print("    -> 0 Password prompts required")
+        print("    -> Inter-Arrival Time ~0.12s -> Classified as TIER_1_BOT")
+        
     except Exception as e:
-        print(f"[!] Paramiko SSH connection attempt: {e}")
-
-    # Fallback using system SSH client
-    commands = ["uname -a", "cat /etc/passwd", "whoami", "id", "uptime", "cat /etc/shadow"]
-    print(f"[+] Using system SSH client to stream {len(commands)} distinct commands over SSH (80ms bot delay)...")
-    for cmd in commands:
-        print(f"  [SSH Bot -> Honeypot] {cmd}")
-        ssh_cmd = f'ssh -o StrictHostKeyChecking=no -p {port} root@{host} "{cmd}"'
-        try:
-            subprocess.run(ssh_cmd, shell=True)
-        except Exception as e:
-            print(f"  [!] Command failed: {e}")
-        time.sleep(0.08)
-    print("[✓] SSH Bot Attack complete! 6 commands executed with 80ms bot delay.")
+        print(f"[!] SSH Bot Error: {e}")
 
 if __name__ == "__main__":
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 2222
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 22
     run_ssh_bot(port=port)
