@@ -36,13 +36,17 @@ def run_ssh_bot(host="127.0.0.1", port=2222):
         print(f"[!] Paramiko SSH connection attempt: {e}")
 
     # Fallback using system SSH client
-    print("[+] Using system SSH client to stream bot commands over SSH socket...")
-    ssh_cmd = f'ssh -o StrictHostKeyChecking=no -p {port} root@{host} "uname -a; cat /etc/passwd; whoami; id; uptime"'
-    try:
-        subprocess.run(ssh_cmd, shell=True)
-        print("[✓] SSH Bot Attack complete!")
-    except Exception as e:
-        print(f"[!] System SSH command failed: {e}")
+    commands = ["uname -a", "cat /etc/passwd", "whoami", "id", "uptime", "cat /etc/shadow"]
+    print(f"[+] Using system SSH client to stream {len(commands)} distinct commands over SSH (80ms bot delay)...")
+    for cmd in commands:
+        print(f"  [SSH Bot -> Honeypot] {cmd}")
+        ssh_cmd = f'ssh -o StrictHostKeyChecking=no -p {port} root@{host} "{cmd}"'
+        try:
+            subprocess.run(ssh_cmd, shell=True)
+        except Exception as e:
+            print(f"  [!] Command failed: {e}")
+        time.sleep(0.08)
+    print("[✓] SSH Bot Attack complete! 6 commands executed with 80ms bot delay.")
 
 if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 2222

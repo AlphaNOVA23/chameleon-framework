@@ -1,5 +1,6 @@
 import datetime
 from database import SessionLocal, SessionData, CommandData, DeceptionData
+import firestore_db
 
 def get_or_create_session(db, session_id, src_ip, connected_at_str):
     session = db.query(SessionData).filter(SessionData.id == session_id).first()
@@ -17,6 +18,18 @@ def get_or_create_session(db, session_id, src_ip, connected_at_str):
         db.add(session)
         db.commit()
         db.refresh(session)
+
+    # Sync to Firestore
+    try:
+        firestore_db.save_session_event("default_user", session_id, {
+            "src_ip": src_ip,
+            "connected_at": connected_at_str,
+            "classification": session.classification or "UNKNOWN",
+            "closed": session.closed_at is not None
+        })
+    except Exception as fe:
+        print(f"[Firestore Sync Error]: {fe}")
+
     return session
 
 def update_session_metrics(db, session_id, classification, mean_iat, variance_iat):
@@ -26,6 +39,15 @@ def update_session_metrics(db, session_id, classification, mean_iat, variance_ia
         session.mean_iat = mean_iat
         session.variance_iat = variance_iat
         db.commit()
+
+        try:
+            firestore_db.save_session_event("default_user", session_id, {
+                "classification": classification,
+                "mean_iat": mean_iat,
+                "variance_iat": variance_iat
+            })
+        except Exception as fe:
+            print(f"[Firestore Metrics Sync Error]: {fe}")
 
 def add_command(db, session_id, text, timestamp_str, intent_tactic, intent_severity):
     try:
@@ -51,6 +73,16 @@ def add_command(db, session_id, text, timestamp_str, intent_tactic, intent_sever
         db.add(cmd)
         db.commit()
 
+        try:
+            firestore_db.add_command_event("default_user", session_id, {
+                "text": text,
+                "timestamp": timestamp_str,
+                "intent_tactic": intent_tactic,
+                "intent_severity": intent_severity
+            })
+        except Exception as fe:
+            print(f"[Firestore Command Sync Error]: {fe}")
+
 def add_deception(db, session_id, action, payload):
     dec = DeceptionData(
         session_id=session_id,
@@ -66,6 +98,14 @@ def close_session(db, session_id, duration_ms):
         session.closed_at = datetime.datetime.utcnow()
         session.duration_ms = duration_ms
         db.commit()
+
+        try:
+            firestore_db.save_session_event("default_user", session_id, {
+                "closed": True,
+                "duration_ms": duration_ms
+            })
+        except Exception as fe:
+            print(f"[Firestore Close Sync Error]: {fe}")
 
 def get_all_sessions(db):
     sessions = db.query(SessionData).all()
