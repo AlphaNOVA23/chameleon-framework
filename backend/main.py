@@ -14,6 +14,7 @@ from orchestrator.semantic_engine import analyze_command
 from orchestrator.deception_engine import generate_deception_action
 from orchestrator.llm_engine import test_groq_connection
 from orchestrator.ip_intel import enrich_ip
+from email_alerts import send_threat_email_alert
 from database import SessionLocal
 import db_sync
 import auth
@@ -287,6 +288,7 @@ async def process_log_event(event: dict, db):
         if deception:
             try:
                 db_sync.add_deception(db, sid, deception["action"], deception["payload"])
+                send_threat_email_alert(sid, s["tier"], s["src_ip"], cmd)
             except Exception as dbe:
                 print(f"DB error (deception): {dbe}")
             await broadcast({
