@@ -92,7 +92,7 @@ def add_deception(db, session_id, action, payload):
     db.add(dec)
     db.commit()
 
-def close_session(db, session_id, duration_ms):
+def close_session(db, session_id, duration_ms, user_id: str = "default_user"):
     session = db.query(SessionData).filter(SessionData.id == session_id).first()
     if session:
         session.closed_at = datetime.datetime.utcnow()
@@ -100,7 +100,7 @@ def close_session(db, session_id, duration_ms):
         db.commit()
 
         try:
-            firestore_db.save_session_event("default_user", session_id, {
+            firestore_db.save_session_event(user_id, session_id, {
                 "closed": True,
                 "duration_ms": duration_ms
             })

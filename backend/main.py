@@ -121,12 +121,15 @@ def get_sensors():
 
 @app.post("/api/sensors/register")
 def register_sensor(sensor_data: dict = Body(...)):
+    user_id = sensor_data.get("user_id") or sensor_data.get("user") or "admin"
     name = sensor_data.get("name", "New-Sensor-Node")
     ip = sensor_data.get("ip", "127.0.0.1")
     region = sensor_data.get("region", "custom-vpc")
     new_id = f"sensor-0{len(SENSOR_NODES) + 1}"
     token = f"CHAM_SENS_{len(SENSOR_NODES) + 1:02d}_KEY"
-    new_sensor = {"id": new_id, "name": name, "ip": ip, "status": "ACTIVE", "region": region, "token": token}
+    TOKEN_USER_MAP[token] = user_id
+    install_cmd = f"curl -sSL https://chameleon-backend-fm38.onrender.com/sensor/install.sh | sudo bash -s -- --token {token} --server https://chameleon-backend-fm38.onrender.com"
+    new_sensor = {"id": new_id, "name": name, "ip": ip, "status": "ACTIVE", "region": region, "token": token, "user_id": user_id, "install_command": install_cmd}
     SENSOR_NODES.append(new_sensor)
     return {"status": "registered", "sensor": new_sensor}
 
