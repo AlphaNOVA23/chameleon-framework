@@ -22,6 +22,7 @@ Ensure Docker Desktop is running before starting the framework.
 1. **Start the Honeypot:**
    ```bash
    docker start -a cowrie
+   docker run -d -p 2222:2222 -v "d:\Code\FYP\chameleon-framework\honeypot\logs2:/cowrie/cowrie-git/var/log/cowrie" -v "d:\Code\FYP\chameleon-framework\honeypot\tty:/cowrie/cowrie-git/var/lib/cowrie/tty" cowrie/cowrie
    ```
 2. **Start the Backend Engine:**
    ```bash

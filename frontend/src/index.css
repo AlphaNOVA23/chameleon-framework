@@ -1,1 +1,165 @@
-/* Cleared by Chameleon setup */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* ── Core Palette (Midnight Obsidian) ── */
+    --color-bg-deep: #08090e;
+    --color-bg-base: #0f111a;
+    --color-bg-surface: #161926;
+    --color-bg-elevated: #1f2436;
+    --color-bg-hover: #262c42;
+    --color-bg-overlay: rgba(8, 9, 14, 0.88);
+
+    /* ── Border System ── */
+    --color-border: rgba(255, 255, 255, 0.08);
+    --color-border-subtle: rgba(255, 255, 255, 0.04);
+    --color-border-active: rgba(168, 85, 247, 0.35);
+
+    /* ── Text Hierarchy ── */
+    --color-text-primary: #f8fafc;
+    --color-text-secondary: #cbd5e1;
+    --color-text-muted: #94a3b8;
+    --color-text-faint: #64748b;
+
+    /* ── Accent Palette (Electric Violet / Cyber Purple) ── */
+    --color-accent: #a855f7;
+    --color-accent-strong: #9333ea;
+    --color-accent-glow: rgba(168, 85, 247, 0.15);
+    --color-accent-ring: rgba(168, 85, 247, 0.25);
+
+    /* ── Semantic Tier Colors ── */
+    --color-tier-bot: #a0aec0;
+    --color-tier-agent: #ecc94b;
+    --color-tier-human: #fc8181;
+    --color-tier-unknown: #b794f4;
+
+    --color-success: #68d391;
+    --color-warning: #f6ad55;
+    --color-danger: #fc8181;
+
+    /* ── Typography ── */
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-display: 'Space Grotesk', 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+    /* ── Radii ── */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+
+    /* ── Shadows ── */
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.3), 0 4px 20px rgba(0,0,0,0.15);
+    --shadow-elevated: 0 8px 32px rgba(0,0,0,0.4);
+    --shadow-glow-accent: 0 0 24px rgba(99, 179, 237, 0.15);
+  }
+
+  [data-theme="light"] {
+    /* ── Core Palette (Chalky White / Slate Claude Style) ── */
+    --color-bg-deep: #f8fafc;
+    --color-bg-base: #f1f5f9;
+    --color-bg-surface: #ffffff;
+    --color-bg-elevated: #e2e8f0;
+    --color-bg-hover: #e2e8f0;
+    --color-bg-overlay: rgba(241, 245, 249, 0.88);
+
+    /* ── Border System ── */
+    --color-border: #cbd5e1;
+    --color-border-subtle: #e2e8f0;
+    --color-border-active: rgba(124, 58, 237, 0.4);
+
+    /* ── Text Hierarchy ── */
+    --color-text-primary: #0f172a;
+    --color-text-secondary: #334155;
+    --color-text-muted: #64748b;
+    --color-text-faint: #94a3b8;
+
+    /* ── Accent Palette (Deep Violet) ── */
+    --color-accent: #7c3aed;
+    --color-accent-strong: #6d28d9;
+    --color-accent-glow: rgba(124, 58, 237, 0.10);
+    --color-accent-ring: rgba(124, 58, 237, 0.20);
+
+    /* ── Shadows ── */
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+    --shadow-elevated: 0 8px 30px rgba(0,0,0,0.12);
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-bg-deep);
+    color: var(--color-text-primary);
+    line-height: 1.6;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.14);
+  }
+
+  /* ── Selection ── */
+  ::selection {
+    background: rgba(79, 209, 197, 0.3);
+    color: #fff;
+  }
+}
+
+/* ── Keyframes ── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(104, 211, 145, 0.5); }
+  70% { box-shadow: 0 0 0 6px rgba(104, 211, 145, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(104, 211, 145, 0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}

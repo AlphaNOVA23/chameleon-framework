@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: chameleon-backend
+    env: docker
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /api/settings

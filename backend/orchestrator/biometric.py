@@ -1,4 +1,4 @@
-import numpy as np
+import config_store
 
 def calculate_metrics(timestamps):
     """
@@ -21,14 +21,18 @@ def calculate_metrics(timestamps):
     return mean_iat, var_iat, iats
 
 def classify(mean_iat, var_iat, num_keys):
-    if num_keys < 5:
+    if num_keys < 2:
         return "UNKNOWN"
         
-    # For the showcase, make thresholds very strict for bots/agents
-    # so humans aren't accidentally flagged due to network jitter
-    if mean_iat < 0.05 or (mean_iat < 0.1 and var_iat < 0.005):
+    settings = config_store.load_settings()
+    tau_bot = settings.get("tau_bot", 0.25)
+    tau_human = settings.get("tau_human", 1.80)
+    delta_var = settings.get("delta_var", 0.08)
+    
+    if mean_iat < tau_bot and var_iat < (delta_var / 4.0):
         return "TIER_1_BOT"
-    elif var_iat < 0.015:
+    elif mean_iat < tau_human:
         return "TIER_2_AGENT"
     else:
         return "TIER_3_HUMAN"
+

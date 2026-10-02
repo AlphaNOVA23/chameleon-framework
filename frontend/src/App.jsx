@@ -1,15 +1,48 @@
-import { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Activity, ShieldAlert, Cpu, UserCheck, Terminal, Network, Shield, AlertTriangle, Fingerprint, Lock, Zap, Clock } from 'lucide-react'
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import React, { useState, useEffect, useRef } from 'react'
+import { motion } from 'framer-motion'
+import {
+  Activity, ShieldAlert, Cpu, UserCheck, Terminal, Network, Shield,
+  AlertTriangle, Fingerprint, Lock, Zap, ChevronDown, ChevronRight,
+  Layers, Sliders, Download, LogOut, Sun, Moon, FileText
+} from 'lucide-react'
+import {
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  BarChart, Bar, Cell, ComposedChart, Line, CartesianGrid
+} from 'recharts'
+import LandingPage from './LandingPage'
+import LoginModal from './LoginModal'
+import SettingsDrawer from './SettingsDrawer'
 import './App.css'
 
 function App() {
   const [sessions, setSessions] = useState({})
   const [events, setEvents] = useState([])
   const [connected, setConnected] = useState(false)
+  const [activeTab, setActiveTab] = useState('landing')
+  const [expandedSession, setExpandedSession] = useState(null)
+
+  // Commercial SaaS state
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem('chameleon_token'))
+  const [currentUser, setCurrentUser] = useState(() => localStorage.getItem('chameleon_user') || 'analyst')
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [selectedSensor, setSelectedSensor] = useState('ALL')
+  const [theme, setTheme] = useState(() => localStorage.getItem('chameleon_theme') || 'dark')
+  const [settings, setSettings] = useState({ tau_bot: 0.25, tau_human: 1.80, delta_var: 0.08 })
+
   const wsRef = useRef(null)
   const eventsEndRef = useRef(null)
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('chameleon_theme', theme)
+  }, [theme])
+
+  useEffect(() => {
+    fetch('http://localhost:8000/api/settings')
+      .then(res => res.json())
+      .then(data => setSettings(prev => ({ ...prev, ...data })))
+      .catch(() => {})
+  }, [isSettingsOpen])
 
   useEffect(() => {
     const connect = () => {
@@ -26,7 +59,6 @@ function App() {
         const data = JSON.parse(e.data)
         const sid = data.session_id
 
-        // Filter out internal state updates from the visual event feed
         if (data.type !== 'SESSION_HISTORY' && data.type !== 'METRICS_UPDATE') {
           setEvents(prev => [...prev.slice(-100), { ...data, _time: new Date().toLocaleTimeString() }])
         }
@@ -37,6 +69,7 @@ function App() {
           if (data.type === 'SESSION_NEW') {
             updated[sid] = {
               src_ip: data.src_ip,
+              ip_intel: data.ip_intel || { flag: '🌐', country: 'Unknown', risk: 'Moderate', threat_score: 50, isp: 'Unresolved' },
               commands: [],
               classification: 'UNKNOWN',
               metrics: { mean_iat: 0, variance_iat: 0, num_commands: 0, recent_iats: [] },
@@ -55,29 +88,17 @@ function App() {
             const currentSession = updated[sid] || { src_ip: '?', commands: [], classification: 'UNKNOWN', metrics: { mean_iat: 0, variance_iat: 0, num_commands: 0, recent_iats: [] }, logins: [], connected_at: new Date().toISOString(), closed: false }
             updated[sid] = {
               ...currentSession,
+              ip_intel: data.ip_intel || currentSession.ip_intel,
               commands: [...currentSession.commands, { text: data.command, intent: data.intent }],
               classification: data.classification,
               metrics: data.metrics
-            }
-          }
-          
-          if (data.type === 'METRICS_UPDATE') {
-            if (updated[sid]) {
-              updated[sid] = {
-                ...updated[sid],
-                classification: data.classification,
-                metrics: {
-                  ...updated[sid].metrics,
-                  mean_iat: data.metrics.mean_iat,
-                  variance_iat: data.metrics.variance_iat
-                }
-              }
             }
           }
 
           if (data.type === 'SESSION_HISTORY') {
             updated[sid] = {
               src_ip: data.src_ip,
+              ip_intel: data.ip_intel || { flag: '🌐', country: 'Unknown', risk: 'Moderate', threat_score: 50, isp: 'Unresolved' },
               commands: data.commands,
               classification: data.classification,
               metrics: data.metrics,
@@ -108,18 +129,19 @@ function App() {
     eventsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [events])
 
-  const tierLabel = (t) => {
-    switch (t) {
-      case 'TIER_1_BOT': return { text: 'BOT SCRIPT', cls: 'tier-bot', icon: <Cpu size={14} /> }
-      case 'TIER_2_AGENT': return { text: 'AI AGENT', cls: 'tier-agent', icon: <Zap size={14} /> }
-      case 'TIER_3_HUMAN': return { text: 'HUMAN', cls: 'tier-human', icon: <UserCheck size={14} /> }
-      default: return { text: 'SCANNING', cls: 'tier-unknown', icon: <Activity size={14} /> }
-    }
+  const handleLogout = () => {
+    localStorage.removeItem('chameleon_token')
+    localStorage.removeItem('chameleon_user')
+    setIsAuthenticated(false)
   }
 
+  const handleExportCSV = () => {
+    window.open('http://localhost:8000/api/reports/export?format=csv', '_blank')
+  }
+
+  // ── Derived Data ──
   const sessionList = Object.entries(sessions)
     .sort(([, a], [, b]) => {
-      // Active sessions first, then sort by timestamp descending
       if (a.closed !== b.closed) return a.closed ? 1 : -1
       const tA = a.connected_at || ''
       const tB = b.connected_at || ''
@@ -128,203 +150,474 @@ function App() {
 
   const activeSessions = sessionList.filter(([, s]) => !s.closed)
   const closedSessions = sessionList.filter(([, s]) => s.closed)
+  const displaySessions = activeTab === 'live' ? activeSessions : closedSessions
+
+  const tierInfo = (t) => {
+    switch (t) {
+      case 'TIER_1_BOT': return { text: 'BOT', cls: 'tier-bot', icon: <Cpu /> }
+      case 'TIER_2_AGENT': return { text: 'AI AGENT', cls: 'tier-agent', icon: <Zap /> }
+      case 'TIER_3_HUMAN': return { text: 'HUMAN', cls: 'tier-human', icon: <UserCheck /> }
+      default: return { text: 'SCANNING', cls: 'tier-unknown', icon: <Activity /> }
+    }
+  }
+
+  const modeLabel = (classification) => {
+    switch (classification) {
+      case 'TIER_3_HUMAN': return { text: 'LLM DECEPTION', cls: 'mode-llm' }
+      case 'TIER_2_AGENT': return { text: 'POISON INJECT', cls: 'mode-poison' }
+      case 'TIER_1_BOT': return { text: 'STATIC TARPIT', cls: 'mode-tarpit' }
+      default: return { text: 'PROFILING...', cls: 'mode-profiling' }
+    }
+  }
+
+  const riskClass = (risk) => {
+    if (!risk) return 'risk-low'
+    if (risk.includes('High')) return 'risk-high'
+    if (risk.includes('Mod')) return 'risk-mod'
+    return 'risk-low'
+  }
+
+  // ── Chart Data ──
+  const biometricsData = sessionList
+    .map(([sid, s]) => ({
+      sid: sid.slice(0, 8),
+      mean_iat: parseFloat((s.metrics?.mean_iat || 0).toFixed(3)),
+      variance: parseFloat((s.metrics?.variance_iat || 0).toFixed(4)),
+      classification: s.classification,
+    }))
+    .filter(d => d.mean_iat > 0)
+
+  const barColor = (cls) => {
+    if (cls === 'TIER_1_BOT') return '#4fd1c5'
+    if (cls === 'TIER_2_AGENT') return '#ecc94b'
+    if (cls === 'TIER_3_HUMAN') return '#fc8181'
+    return '#a0aec0'
+  }
 
   return (
-    <div className="app">
-      <header className="header">
+    <div className="app-shell">
+      {/* ── Login Gate ── */}
+      {!isAuthenticated && (
+        <LoginModal
+          onLoginSuccess={(data) => {
+            setIsAuthenticated(true)
+            setCurrentUser(data.username)
+            setActiveTab('live')
+          }}
+        />
+      )}
+
+      {/* ── Settings Drawer ── */}
+      <SettingsDrawer
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
+
+      {/* ═══════════ HEADER ═══════════ */}
+      <header className="app-header">
         <div className="header-left">
-          <div className="logo-container">
-            <h1 className="logo">CHAMELEON</h1>
+          <div className="brand">
+            <h1 className="brand-name">Chameleon</h1>
+            <span className="brand-tag">SOC</span>
           </div>
+
+          <nav className="nav-pills">
+            <button
+              className={`nav-pill ${activeTab === 'landing' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('landing'); setExpandedSession(null) }}
+            >
+              <Layers /> Overview
+            </button>
+            <button
+              className={`nav-pill ${activeTab === 'live' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('live'); setExpandedSession(null) }}
+            >
+              <Activity /> Threat Radar
+            </button>
+            <button
+              className={`nav-pill ${activeTab === 'archive' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('archive'); setExpandedSession(null) }}
+            >
+              <Shield /> Forensics Archive
+            </button>
+          </nav>
         </div>
+
         <div className="header-right">
-          <span className={`status-dot ${connected ? 'online' : 'offline'}`}></span>
-          {!connected && <span className="status-text">CONNECTION LOST</span>}
+          <select
+            className="header-select"
+            value={selectedSensor}
+            onChange={(e) => setSelectedSensor(e.target.value)}
+          >
+            <option value="ALL">All Sensors (3 Active)</option>
+            <option value="sensor-01">AWS-US-East-Sensor</option>
+            <option value="sensor-02">Azure-EU-West-Canary</option>
+            <option value="sensor-03">Internal-DMZ-Trap</option>
+          </select>
+
+          <button
+            className="header-btn"
+            onClick={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
+            title="Toggle Light / Dark Mode"
+          >
+            {theme === 'dark' ? <Sun /> : <Moon />} {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          </button>
+
+          <button className="header-btn" onClick={() => setIsSettingsOpen(true)}>
+            <Sliders /> Settings
+          </button>
+
+          <button className="header-btn" onClick={handleExportCSV}>
+            <Download /> CSV
+          </button>
+
+          <button className="header-btn header-btn-primary" onClick={handleExportPDF}>
+            <FileText /> Report PDF
+          </button>
+
+          <div className="user-chip">
+            <UserCheck />
+            <span>{currentUser}</span>
+            {isAuthenticated && (
+              <button className="logout-btn" onClick={handleLogout}>
+                <LogOut />
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
-      <div className="dashboard">
-        {/* Stats Bar */}
-        <div className="stats-bar">
-          <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="stat-card">
-            <div className="stat-header">
-              <span className="stat-label">Active Connections</span>
-              <Network size={16} color="#64748b" />
-            </div>
-            <div className="stat-value">{activeSessions.length}</div>
-          </motion.div>
-          <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }} className="stat-card">
-            <div className="stat-header">
-              <span className="stat-label">Bots Neutralized</span>
-              <Cpu size={16} color="#94a3b8" />
-            </div>
-            <div className="stat-value">{sessionList.filter(([, s]) => s.classification === 'TIER_1_BOT').length}</div>
-          </motion.div>
-          <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="stat-card accent">
-            <div className="stat-header">
-              <span className="stat-label">Humans Trapped</span>
-              <UserCheck size={16} color="#f43f5e" />
-            </div>
-            <div className="stat-value">{sessionList.filter(([, s]) => s.classification === 'TIER_3_HUMAN').length}</div>
-          </motion.div>
-          <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} className="stat-card warn">
-            <div className="stat-header">
-              <span className="stat-label">AI Agents Detected</span>
-              <Zap size={16} color="#eab308" />
-            </div>
-            <div className="stat-value">{sessionList.filter(([, s]) => s.classification === 'TIER_2_AGENT').length}</div>
-          </motion.div>
-        </div>
-
-        <div className="main-grid">
-          {/* Sessions Panel */}
-          <div className="panel sessions-panel">
-            <div className="panel-header" style={{display: 'flex', justifyContent: 'space-between'}}>
-              <div style={{display: 'flex', alignItems: 'center', gap: '0.75rem'}}>
-                <ShieldAlert size={18} color="#0369a1" />
-                <h2 className="panel-title">Threat Radar</h2>
+      {/* ═══════════ CONTENT ═══════════ */}
+      {activeTab === 'landing' ? (
+        <LandingPage onLaunch={setActiveTab} />
+      ) : (
+        <main className="dashboard">
+          {/* ── Stats Row ── */}
+          <div className="stats-row">
+            <motion.div className="stat-card accent-violet" initial={{ y: -8, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
+              <div className="stat-card-head">
+                <span className="stat-label">Active Connections</span>
+                <Network />
               </div>
-              <button 
-                onClick={() => window.location.reload()} 
-                style={{background: 'rgba(3, 105, 161, 0.1)', border: '1px solid rgba(3, 105, 161, 0.2)', color: '#0369a1', padding: '4px 12px', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer', fontWeight: 600}}>
-                REFRESH RADAR
-              </button>
+              <span className="stat-value">{activeSessions.length}</span>
+            </motion.div>
+
+            <motion.div className="stat-card accent-cyan" initial={{ y: -8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.06 }}>
+              <div className="stat-card-head">
+                <span className="stat-label">Bots Neutralized</span>
+                <Cpu />
+              </div>
+              <span className="stat-value">{sessionList.filter(([, s]) => s.classification === 'TIER_1_BOT').length}</span>
+            </motion.div>
+
+            <motion.div className="stat-card accent-rose" initial={{ y: -8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.12 }}>
+              <div className="stat-card-head">
+                <span className="stat-label">Humans Trapped</span>
+                <UserCheck />
+              </div>
+              <span className="stat-value">{sessionList.filter(([, s]) => s.classification === 'TIER_3_HUMAN').length}</span>
+            </motion.div>
+
+            <motion.div className="stat-card accent-amber" initial={{ y: -8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.18 }}>
+              <div className="stat-card-head">
+                <span className="stat-label">AI Agents Detected</span>
+                <Zap />
+              </div>
+              <span className="stat-value">{sessionList.filter(([, s]) => s.classification === 'TIER_2_AGENT').length}</span>
+            </motion.div>
+          </div>
+
+          {/* ── Biometrics Chart ── */}
+          <div className="chart-section">
+            <div className="chart-header">
+              <div className="chart-title-group">
+                <Activity />
+                <h2 className="chart-title">Real-Time Behavioral Biometrics — Mean IAT vs Jitter Variance</h2>
+              </div>
+              <div className="chart-legend">
+                <span className="legend-item bot"><span className="legend-dot" /> Bot (&lt;{settings.tau_bot || 0.25}s)</span>
+                <span className="legend-item agent"><span className="legend-dot" /> AI Agent ({settings.tau_bot || 0.25}–{settings.tau_human || 1.80}s)</span>
+                <span className="legend-item human"><span className="legend-dot" /> Human (&gt;{settings.tau_human || 1.80}s)</span>
+              </div>
             </div>
-            <div className="session-list">
-              {sessionList.length === 0 && (
-                <div className="empty-state">
-                  <Activity size={48} opacity={0.2} />
-                  <p>Awaiting incoming SSH attacks on Port 2222...</p>
-                </div>
-              )}
-              <AnimatePresence>
-                {sessionList.map(([sid, s]) => {
-                  const tier = tierLabel(s.classification)
-                  const chartData = (s.metrics?.recent_iats || []).map((val, idx) => ({ name: idx, iat: val }))
-                  
-                  return (
-                    <motion.div 
-                      key={sid} 
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      className={`session-card ${s.closed ? 'closed' : ''}`}
-                    >
-                      <div className="session-header">
-                        <span className="session-id">
-                          <Fingerprint size={14} color="#0369a1" />
-                          {sid.slice(0, 12)}
-                        </span>
-                        <span className={`tier-badge ${tier.cls}`}>
-                          {tier.icon} {tier.text}
-                        </span>
-                      </div>
-                      
-                      <div className="session-meta">
-                        <span className="meta-item"><Network size={12}/> {s.src_ip}</span>
-                        <span className="meta-item"><Terminal size={12}/> {s.metrics?.num_commands || 0} cmds</span>
-                        {s.connected_at && <span className="meta-item"><Clock size={12}/> {new Date(s.connected_at).toLocaleString()}</span>}
-                        {s.closed 
-                          ? <span className="meta-item" style={{color: '#94a3b8'}}>CLOSED</span>
-                          : <span className="meta-item" style={{color: '#059669', fontWeight: 700}}>● LIVE</span>
-                        }
-                        {s.closed && <span className="meta-item"><Clock size={12}/> {(s.duration_ms / 1000).toFixed(1)}s</span>}
-                      </div>
-
-                      {s.metrics?.mean_iat > 0 && (
-                        <div className="metrics-grid">
-                          <div className="metric">
-                            <span className="metric-label">Mean IAT</span>
-                            <span className="metric-value">{s.metrics.mean_iat.toFixed(3)}s</span>
-                          </div>
-                          <div className="metric">
-                            <span className="metric-label">Jitter Var</span>
-                            <span className="metric-value">{s.metrics.variance_iat.toFixed(4)}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Advanced Recharts IAT Graph */}
-                      {chartData.length > 2 && (
-                        <div className="chart-container">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={chartData}>
-                              <defs>
-                                <linearGradient id={`colorIat-${sid}`} x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#0369a1" stopOpacity={0.6}/>
-                                  <stop offset="95%" stopColor="#0369a1" stopOpacity={0.05}/>
-                                </linearGradient>
-                              </defs>
-                              <Tooltip 
-                                contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                itemStyle={{ color: '#0369a1' }}
-                                formatter={(value) => [`${value.toFixed(3)}s`, 'IAT']}
-                                labelFormatter={() => ''}
-                              />
-                              <Area type="monotone" dataKey="iat" stroke="#0369a1" strokeWidth={2} fillOpacity={1} fill={`url(#colorIat-${sid})`} />
-                            </AreaChart>
-                          </ResponsiveContainer>
-                        </div>
-                      )}
-
-                      {s.commands.length > 0 && (
-                        <div className="cmd-list">
-                          {s.commands.slice(-4).map((cmd, i) => (
-                            <div key={i} className="cmd-line">
-                              <span className="prompt">$</span> {cmd.text || cmd}
-                              {cmd.intent && cmd.intent.severity > 0 && (
-                                <span style={{float: 'right', fontSize: '9px', color: '#eab308', background: 'rgba(234, 179, 8, 0.1)', padding: '1px 4px', borderRadius: '2px'}}>{cmd.intent.tactic}</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className={`response-mode ${s.classification === 'TIER_3_HUMAN' ? 'llm' : s.classification === 'TIER_2_AGENT' ? 'poison' : 'static'}`}>
-                        {s.classification === 'TIER_3_HUMAN' ? <><Lock size={12}/> LLM DECEPTION ACTIVE</> :
-                         s.classification === 'TIER_2_AGENT' ? <><AlertTriangle size={12}/> POISONED DATA INJECTED</> :
-                         s.classification === 'TIER_1_BOT' ? <><Activity size={12}/> STATIC TARPIT</> :
-                         <><Activity size={12}/> PROFILING KEYSTROKES...</>}
-                      </div>
-                    </motion.div>
-                  )
-                })}
-              </AnimatePresence>
+            <div className="chart-area">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={biometricsData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                  <XAxis dataKey="sid" tick={{ fontSize: 10, fill: '#718096' }} axisLine={false} tickLine={false} />
+                  <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#718096' }} unit="s" width={36} axisLine={false} tickLine={false} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#718096' }} width={36} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{
+                      background: '#111827',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '8px',
+                      fontSize: '11px',
+                      color: '#f0f4f8',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                    }}
+                    itemStyle={{ color: '#e2e8f0' }}
+                    labelStyle={{ color: '#a0aec0', fontWeight: 600 }}
+                  />
+                  <Bar yAxisId="left" dataKey="mean_iat" name="Mean IAT (sec)" radius={[4, 4, 0, 0]}>
+                    {biometricsData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={barColor(entry.classification)} />
+                    ))}
+                  </Bar>
+                  <Line yAxisId="right" type="monotone" dataKey="variance" name="Jitter Variance (s²)" stroke="#b794f4" strokeWidth={2} dot={{ r: 3, fill: '#b794f4' }} />
+                </ComposedChart>
+              </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Live Feed */}
-          <div className="panel feed-panel">
-            <div className="panel-header">
-              <Activity size={18} color="#0369a1" />
-              <h2 className="panel-title">Global Event Stream</h2>
-            </div>
-            <div className="event-feed">
-              {events.map((ev, i) => (
-                <div key={i} className={`event-row event-${ev.type?.toLowerCase()}`}>
-                  <span className="event-time">{ev._time}</span>
-                  <span className="event-type">
-                    {ev.type === 'COMMAND' && <Terminal size={14}/>}
-                    {ev.type === 'SESSION_NEW' && <Network size={14}/>}
-                    {ev.type === 'LOGIN_ATTEMPT' && <Lock size={14}/>}
-                    {ev.type === 'SESSION_CLOSED' && <Clock size={14}/>}
-                    {ev.type === 'DECEPTION_DEPLOYED' && <ShieldAlert size={14} color="#f43f5e" className="animate-pulse" />}
-                    {ev.type !== 'DECEPTION_DEPLOYED' ? ev.type : 'COUNTER-MEASURE ENGAGED'}
-                  </span>
-                  <span className="event-detail">
-                    {ev.type === 'COMMAND' && <><code>{ev.command}</code> {ev.intent && ev.intent.severity > 0 && <span style={{color: '#eab308', fontSize: '10px'}}>[{ev.intent.tactic}]</span>} <span className={tierLabel(ev.classification).cls} style={{padding: '2px 6px', fontSize: '10px'}}>{tierLabel(ev.classification).text}</span></>}
-                    {ev.type === 'SESSION_NEW' && <>Connection established from {ev.src_ip}</>}
-                    {ev.type === 'LOGIN_ATTEMPT' && <>{ev.success ? <UserCheck size={14} color="#10b981"/> : <AlertTriangle size={14} color="#ef4444"/>} {ev.username}:{ev.password}</>}
-                    {ev.type === 'SESSION_CLOSED' && <>Session terminated ({(ev.duration_ms / 1000).toFixed(1)}s)</>}
-                    {ev.type === 'DECEPTION_DEPLOYED' && <><span style={{color: '#f43f5e', fontWeight: 'bold'}}>{ev.action}</span> ➔ {ev.payload}</>}
-                  </span>
+          {/* ── Main Grid: Sessions + Events ── */}
+          <div className="main-grid">
+            {/* Sessions Panel */}
+            <div className="panel">
+              <div className="panel-header">
+                <div className="panel-title-group">
+                  <ShieldAlert />
+                  <h2 className="panel-title">{activeTab === 'live' ? 'Live Threat Radar' : 'Forensics Archive'}</h2>
+                  <span className="panel-count">{displaySessions.length}</span>
                 </div>
-              ))}
-              <div ref={eventsEndRef} />
+                <button className="refresh-btn" onClick={() => window.location.reload()}>REFRESH</button>
+              </div>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table className="session-table">
+                  <thead>
+                    <tr>
+                      <th className="col-chevron"></th>
+                      <th className="col-status">Status</th>
+                      <th className="col-id">Session ID</th>
+                      <th className="col-source">Source Telemetry</th>
+                      <th className="col-class">Classification</th>
+                      <th className="col-cmds center">Cmds</th>
+                      <th className="col-iat">Mean IAT</th>
+                      <th className="col-mode">Response Mode</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displaySessions.length === 0 && (
+                      <tr>
+                        <td colSpan="8">
+                          <div className="empty-state">
+                            <Activity />
+                            <span className="empty-state-text">
+                              {activeTab === 'live' ? 'Awaiting incoming SSH attacks...' : 'No archived sessions.'}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+
+                    {displaySessions.map(([sid, s]) => {
+                      const tier = tierInfo(s.classification)
+                      const mode = modeLabel(s.classification)
+                      const isExpanded = expandedSession === sid
+                      const intel = s.ip_intel || { flag: '🌐', country: 'Unknown', risk: 'Moderate', threat_score: 50, isp: 'Unresolved' }
+                      const chartData = (s.metrics?.recent_iats || []).map((val, idx) => ({ name: `Cmd ${idx + 1}`, iat: val }))
+
+                      return (
+                        <React.Fragment key={sid}>
+                          {/* Session Row */}
+                          <tr onClick={() => setExpandedSession(prev => prev === sid ? null : sid)}>
+                            <td>
+                              <div className="chevron-cell">
+                                {isExpanded ? <ChevronDown /> : <ChevronRight />}
+                              </div>
+                            </td>
+                            <td>
+                              {s.closed
+                                ? <span className="badge badge-closed">CLOSED</span>
+                                : <span className="badge badge-live">LIVE</span>
+                              }
+                            </td>
+                            <td>
+                              <div className="session-id-cell">
+                                <Fingerprint />
+                                <span className="session-id-text">{sid.slice(0, 10)}</span>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="source-cell">
+                                <span className="source-flag">{intel.flag}</span>
+                                <span className="source-ip">{s.src_ip}</span>
+                                <span className={`risk-badge ${riskClass(intel.risk)}`}>{intel.risk}</span>
+                              </div>
+                            </td>
+                            <td>
+                              <span className={`tier-badge ${tier.cls}`}>
+                                {tier.icon} {tier.text}
+                              </span>
+                            </td>
+                            <td className="center">
+                              <span className="cmds-cell">{s.metrics?.num_commands || s.commands?.length || 0}</span>
+                            </td>
+                            <td>
+                              <span className="iat-cell">
+                                {s.metrics?.mean_iat > 0 ? `${s.metrics.mean_iat.toFixed(3)}s` : '—'}
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`mode-badge ${mode.cls}`}>{mode.text}</span>
+                            </td>
+                          </tr>
+
+                          {/* Expanded Detail */}
+                          {isExpanded && (
+                            <tr className="session-detail-row">
+                              <td colSpan="8">
+                                <div className="detail-inner">
+                                  {/* Left Column */}
+                                  <div className="detail-col">
+                                    {/* Meta Grid */}
+                                    <div className="detail-meta">
+                                      <div className="meta-item">
+                                        <span className="meta-label">Origin / ISP</span>
+                                        <span className="meta-value">{intel.country} ({intel.isp})</span>
+                                      </div>
+                                      <div className="meta-item">
+                                        <span className="meta-label">Threat Score</span>
+                                        <span className="meta-value accent">{intel.threat_score}/100</span>
+                                      </div>
+                                      <div className="meta-item">
+                                        <span className="meta-label">Mean IAT</span>
+                                        <span className="meta-value accent">{s.metrics?.mean_iat > 0 ? `${s.metrics.mean_iat.toFixed(4)}s` : '—'}</span>
+                                      </div>
+                                      <div className="meta-item">
+                                        <span className="meta-label">Jitter Var</span>
+                                        <span className="meta-value accent">{s.metrics?.variance_iat > 0 ? s.metrics.variance_iat.toFixed(5) : '—'}</span>
+                                      </div>
+                                    </div>
+
+                                    {/* Terminal */}
+                                    {s.commands.length > 0 && (
+                                      <div className="terminal-block">
+                                        <div className="terminal-toolbar">
+                                          <Terminal /> Command History ({s.commands.length})
+                                        </div>
+                                        <div className="terminal-body">
+                                          {s.commands.map((cmd, i) => (
+                                            <div key={i} className="terminal-line">
+                                              <span className="terminal-prompt">$</span>
+                                              <span className="terminal-cmd">{cmd.text || cmd}</span>
+                                              {cmd.intent && cmd.intent.severity > 0 && (
+                                                <span className="terminal-tag">{cmd.intent.tactic}</span>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Right Column */}
+                                  <div className="detail-col">
+                                    {/* IAT Chart */}
+                                    {chartData.length > 1 && (
+                                      <div className="detail-chart-block">
+                                        <div className="detail-chart-title">Inter-Command Arrival Time Sequence</div>
+                                        <div className="detail-chart-area">
+                                          <ResponsiveContainer width="100%" height="100%">
+                                            <AreaChart data={chartData}>
+                                              <defs>
+                                                <linearGradient id={`grad-${sid}`} x1="0" y1="0" x2="0" y2="1">
+                                                  <stop offset="5%" stopColor="#63b3ed" stopOpacity={0.4} />
+                                                  <stop offset="95%" stopColor="#63b3ed" stopOpacity={0.02} />
+                                                </linearGradient>
+                                              </defs>
+                                              <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#4a5568' }} axisLine={false} tickLine={false} />
+                                              <YAxis tick={{ fontSize: 9, fill: '#4a5568' }} axisLine={false} tickLine={false} unit="s" width={30} />
+                                              <Tooltip
+                                                contentStyle={{
+                                                  background: '#111827',
+                                                  border: '1px solid rgba(255,255,255,0.08)',
+                                                  borderRadius: 6,
+                                                  fontSize: 10,
+                                                  color: '#f0f4f8'
+                                                }}
+                                              />
+                                              <Area type="monotone" dataKey="iat" stroke="#63b3ed" strokeWidth={2} fill={`url(#grad-${sid})`} dot={{ r: 2, fill: '#63b3ed' }} />
+                                            </AreaChart>
+                                          </ResponsiveContainer>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Response Indicator */}
+                                    <div className={`response-indicator ${
+                                      s.classification === 'TIER_3_HUMAN' ? 'ri-human' :
+                                      s.classification === 'TIER_2_AGENT' ? 'ri-agent' : 'ri-bot'
+                                    }`}>
+                                      {s.classification === 'TIER_3_HUMAN' && <><Lock /> LLM DECEPTION ACTIVE — Dynamic honeytokens hallucinated for human adversary</>}
+                                      {s.classification === 'TIER_2_AGENT' && <><AlertTriangle /> AGENT POISONING — Prompt injection payloads deployed to corrupt LLM context</>}
+                                      {s.classification === 'TIER_1_BOT' && <><Cpu /> STATIC TARPIT — Low-cost default Cowrie responses served</>}
+                                      {!['TIER_1_BOT', 'TIER_2_AGENT', 'TIER_3_HUMAN'].includes(s.classification) && <><Activity /> PROFILING — Collecting behavioral biometrics...</>}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Event Stream Panel */}
+            <div className="panel">
+              <div className="panel-header">
+                <div className="panel-title-group">
+                  <Activity />
+                  <h2 className="panel-title">Event Stream</h2>
+                </div>
+                <span className="panel-count">{events.length}</span>
+              </div>
+
+              <div className="event-stream">
+                {events.map((ev, i) => (
+                  <div key={i} className="event-item">
+                    <span className="event-time">{ev._time}</span>
+                    <span className="event-type">
+                      {ev.type === 'COMMAND' ? '[CMD]' :
+                       ev.type === 'SESSION_NEW' ? '[CONN]' :
+                       ev.type === 'LOGIN_ATTEMPT' ? '[AUTH]' : '[EVT]'}
+                    </span>
+                    <div className="event-body">
+                      {ev.type === 'COMMAND' && (
+                        <span>
+                          Executed: <code>{ev.command}</code>
+                          {ev.intent && ev.intent.severity > 0 && (
+                            <span className="event-tactic">[{ev.intent.tactic}]</span>
+                          )}
+                        </span>
+                      )}
+                      {ev.type === 'SESSION_NEW' && (
+                        <span>
+                          New connection from <code>{ev.src_ip}</code> {ev.ip_intel?.flag} ({ev.ip_intel?.country})
+                        </span>
+                      )}
+                      {ev.type === 'LOGIN_ATTEMPT' && (
+                        <span>
+                          Auth attempt: <code>{ev.username}:{ev.password}</code> {ev.success ? '✓' : '✗'}
+                        </span>
+                      )}
+                      {ev.type === 'DECEPTION_DEPLOYED' && (
+                        <span className="event-deception">{ev.action}: {ev.payload}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                <div ref={eventsEndRef} />
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </main>
+      )}
     </div>
   )
 }

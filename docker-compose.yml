@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  honeypot:
+    image: cowrie/cowrie:latest
+    container_name: chameleon_honeypot_sensor
+    restart: always
+    ports:
+      - "2222:2222"
+    volumes:
+      - ./honeypot/logs2:/cowrie/cowrie-git/var/log/cowrie
+      - ./honeypot/tty:/cowrie/cowrie-git/var/lib/cowrie/tty
+      - ./honeypot/honeyfs:/cowrie/cowrie-git/honeyfs
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chameleon_orchestration_engine
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY:-""}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-"chameleon_commercial_secret_key_2026_fypproject"}
+    volumes:
+      - ./honeypot/logs2:/app/honeypot/logs2
+      - ./honeypot/honeyfs:/app/honeypot/honeyfs
+      - ./backend/chameleon.db:/app/chameleon.db
+    depends_on:
+      - honeypot
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: chameleon_soc_portal
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend

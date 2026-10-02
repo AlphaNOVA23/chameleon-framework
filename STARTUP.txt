@@ -1,0 +1,46 @@
+========================================
+  CHAMELEON FRAMEWORK — STARTUP GUIDE
+========================================
+
+You need 4 terminals open. Run them in this order:
+
+
+TERMINAL 1: Cowrie Honeypot (Docker)
+------------------------------------------------
+docker run -d -p 2222:2222 -v "d:\Code\FYP\chameleon-framework\honeypot\logs2:/cowrie/cowrie-git/var/log/cowrie" -v "d:\Code\FYP\chameleon-framework\honeypot\tty:/cowrie/cowrie-git/var/lib/cowrie/tty" cowrie/cowrie
+
+  → Starts Cowrie SSH honeypot on port 2222
+  → Must be running FIRST — everything else reads its logs
+  → If the container already exists, use: docker start cowrie
+
+
+TERMINAL 2: Backend (FastAPI + WebSocket Server)
+------------------------------------------------
+cd d:\Code\FYP\chameleon-framework\backend
+python main.py
+
+  → Runs on http://localhost:8000
+  → Tails cowrie.json for events
+  → Broadcasts to dashboard via WebSocket
+
+
+TERMINAL 3: Frontend (React + Vite Dev Server)
+------------------------------------------------
+cd d:\Code\FYP\chameleon-framework\frontend
+npm run dev
+
+  → Runs on http://localhost:5173
+  → Open this URL in your browser
+
+
+TERMINAL 4: Attack Simulation
+------------------------------------------------
+cd d:\Code\FYP\chameleon-framework
+
+  Bot attack (0ms delay, classifies as TIER_1_BOT):
+    python bot_attack.py
+
+  Test suite (injects 4 mock sessions without needing Docker):
+    python test_suite.py
+    → 2 Bots + 2 Humans, takes ~40 seconds
+    → Use this if Docker is temporarily unavailable

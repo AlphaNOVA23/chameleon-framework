@@ -1,0 +1,11 @@
+{
+  "tau_bot": 0.25,
+  "tau_human": 1.8,
+  "delta_var": 0.08,
+  "groq_api_key": "",
+  "webhook_url": "",
+  "groq_model": "llama-3.1-8b-instant",
+  "offline_fallback_enabled": true,
+  "alert_email": "",
+  "email_alerts_enabled": false
+}
