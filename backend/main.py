@@ -359,10 +359,19 @@ async def tail_logs():
         
         await asyncio.sleep(0.1)
 
+TOKEN_USER_MAP = {
+    "CHAM_SENS_01_KEY": "admin",
+    "CHAM_SENS_02_KEY": "admin",
+    "CHAM_SENS_03_KEY": "admin"
+}
+
 @app.post("/api/ingest")
 async def ingest_event(payload: dict = Body(...)):
     token = payload.get("token")
-    user_id = payload.get("user_id") or payload.get("user") or "admin"
+    user_id = payload.get("user_id") or payload.get("user")
+    if not user_id or user_id == "admin":
+        user_id = TOKEN_USER_MAP.get(token, "admin")
+        
     event = payload.get("event")
     if not event or not isinstance(event, dict):
         raise HTTPException(status_code=400, detail="Invalid event payload")
