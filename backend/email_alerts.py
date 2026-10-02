@@ -15,10 +15,11 @@ def send_threat_email_alert(session_id: str, classification: str, src_ip: str, c
         print(f"[Email Alert] No alert email address configured. Skipping alert for session {session_id}.")
         return False
 
-    smtp_host = settings.get("smtp_host", "smtp.gmail.com")
-    smtp_port = int(settings.get("smtp_port", 587))
-    smtp_user = settings.get("smtp_user", "")
-    smtp_pass = settings.get("smtp_password", "")
+    import os
+    smtp_host = settings.get("smtp_host") or os.environ.get("SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int(settings.get("smtp_port") or os.environ.get("SMTP_PORT", 587))
+    smtp_user = settings.get("smtp_user") or os.environ.get("SMTP_USER", "")
+    smtp_pass = settings.get("smtp_password") or os.environ.get("SMTP_PASSWORD", "")
 
     subject = f"🚨 CHAMELEON ALERT: {classification} Threat Detected from {src_ip}"
     
