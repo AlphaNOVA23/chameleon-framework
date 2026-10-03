@@ -58,8 +58,7 @@ def tail_file(filename):
             time.sleep(2)
             
     with open(filename, "r", encoding="utf-8", errors="ignore") as f:
-        f.seek(0, os.SEEK_END)
-        print(f"[Chameleon-Agent] Tailing {filename}...")
+        print(f"[Chameleon-Agent] Syncing and Tailing {filename}...")
         while True:
             line = f.readline()
             if not line:

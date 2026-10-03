@@ -365,14 +365,15 @@ async def tail_logs():
 TOKEN_USER_MAP = {
     "CHAM_SENS_01_KEY": "admin",
     "CHAM_SENS_02_KEY": "admin",
-    "CHAM_SENS_03_KEY": "admin"
+    "CHAM_SENS_03_KEY": "admin",
+    "CHAM_SENS_04_KEY": "admin"
 }
 
 @app.post("/api/ingest")
 async def ingest_event(payload: dict = Body(...)):
     token = payload.get("token")
     user_id = payload.get("user_id") or payload.get("user")
-    if not user_id or user_id == "admin":
+    if not user_id or user_id in ("admin", "default_user"):
         user_id = TOKEN_USER_MAP.get(token, "admin")
         
     event = payload.get("event")
