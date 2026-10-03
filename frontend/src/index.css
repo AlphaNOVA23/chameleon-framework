@@ -49,6 +49,10 @@
     --radius-lg: 14px;
     --radius-xl: 20px;
 
+    /* ── Component Specific Tokens ── */
+    --color-header-bg: rgba(8, 9, 14, 0.85);
+    --color-nav-pills-bg: rgba(255, 255, 255, 0.04);
+
     /* ── Shadows ── */
     --shadow-card: 0 1px 3px rgba(0,0,0,0.3), 0 4px 20px rgba(0,0,0,0.15);
     --shadow-elevated: 0 8px 32px rgba(0,0,0,0.4);
@@ -60,9 +64,11 @@
     --color-bg-deep: #f8fafc;
     --color-bg-base: #f1f5f9;
     --color-bg-surface: #ffffff;
-    --color-bg-elevated: #e2e8f0;
-    --color-bg-hover: #e2e8f0;
-    --color-bg-overlay: rgba(241, 245, 249, 0.88);
+    --color-bg-elevated: #ffffff;
+    --color-bg-hover: #f1f5f9;
+    --color-bg-overlay: rgba(255, 255, 255, 0.90);
+    --color-header-bg: rgba(255, 255, 255, 0.92);
+    --color-nav-pills-bg: #e2e8f0;
 
     /* ── Border System ── */
     --color-border: #cbd5e1;
@@ -82,8 +88,8 @@
     --color-accent-ring: rgba(124, 58, 237, 0.20);
 
     /* ── Shadows ── */
-    --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
-    --shadow-elevated: 0 8px 30px rgba(0,0,0,0.12);
+    --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.05), 0 4px 12px rgba(15, 23, 42, 0.03);
+    --shadow-elevated: 0 8px 30px rgba(15, 23, 42, 0.08);
   }
 
   * {

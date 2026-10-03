@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { X, Key, Sliders, Bell, Cpu, Check, AlertCircle } from 'lucide-react'
+import { API_BASE } from './config'
 import './App.css'
 
 export default function SettingsDrawer({ isOpen, onClose }) {
@@ -22,7 +23,7 @@ export default function SettingsDrawer({ isOpen, onClose }) {
   useEffect(() => {
     if (isOpen) {
       const currentUserId = localStorage.getItem('chameleon_user') || 'default_user'
-      fetch(`http://localhost:8000/api/settings?user_id=${encodeURIComponent(currentUserId)}`)
+      fetch(`${API_BASE}/api/settings?user_id=${encodeURIComponent(currentUserId)}`)
         .then(res => res.json())
         .then(data => {
           setSettings(prev => ({ ...prev, ...data }))
@@ -40,7 +41,7 @@ export default function SettingsDrawer({ isOpen, onClose }) {
     setTestingGroq(true)
     setTestResult(null)
     try {
-      const res = await fetch('http://localhost:8000/api/groq/test', {
+      const res = await fetch(`${API_BASE}/api/groq/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groq_api_key: settings.groq_api_key })
@@ -63,7 +64,7 @@ export default function SettingsDrawer({ isOpen, onClose }) {
     const currentUserId = localStorage.getItem('chameleon_user') || 'default_user'
 
     try {
-      const res = await fetch(`http://localhost:8000/api/settings?user_id=${encodeURIComponent(currentUserId)}`, {
+      const res = await fetch(`${API_BASE}/api/settings?user_id=${encodeURIComponent(currentUserId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings)

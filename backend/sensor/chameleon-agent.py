@@ -11,12 +11,28 @@ import argparse
 import urllib.request
 import urllib.parse
 
+def find_logfile(user_path=None):
+    if user_path and os.path.exists(user_path):
+        return os.path.abspath(user_path)
+    
+    candidates = [
+        r"C:\Users\tanma\cowrie_logs\cowrie.json",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "honeypot", "logs2", "cowrie.json"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "honeypot", "logs2", "cowrie.json"),
+        os.path.join(os.getcwd(), "honeypot", "logs2", "cowrie.json"),
+        "/var/log/cowrie/cowrie.json"
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return os.path.abspath(c)
+    return user_path or "/var/log/cowrie/cowrie.json"
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Chameleon Remote Sensor Agent")
     parser.add_argument("--token", required=True, help="Sensor authentication token")
     parser.add_argument("--user_id", default="admin", help="Tenant user account ID / email")
     parser.add_argument("--server", default="http://localhost:8000", help="Chameleon backend server URL")
-    parser.add_argument("--logfile", default="/var/log/cowrie/cowrie.json", help="Path to cowrie.json log")
+    parser.add_argument("--logfile", default=None, help="Path to cowrie.json log")
     return parser.parse_args()
 
 def send_event(server, token, event, user_id="admin"):
@@ -57,11 +73,12 @@ def tail_file(filename):
 
 def main():
     args = parse_args()
+    logfile = find_logfile(args.logfile)
     print(f"[Chameleon-Agent] Starting sensor agent...")
     print(f"[Chameleon-Agent] Server: {args.server}")
-    print(f"[Chameleon-Agent] Logfile: {args.logfile}")
+    print(f"[Chameleon-Agent] Logfile: {logfile}")
     
-    for event in tail_file(args.logfile):
+    for event in tail_file(logfile):
         send_event(args.server, args.token, event, user_id=args.user_id)
 
 if __name__ == "__main__":

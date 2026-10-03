@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import {
   Activity, ShieldAlert, Cpu, UserCheck, Terminal, Network, Shield,
   AlertTriangle, Fingerprint, Lock, Zap, ChevronDown, ChevronRight,
-  Layers, Sliders, Download, LogOut, Sun, Moon, FileText
+  Layers, Sliders, Download, LogOut, Sun, Moon, FileText, Trash2, Server
 } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -12,19 +12,26 @@ import {
 import LandingPage from './LandingPage'
 import LoginModal from './LoginModal'
 import SettingsDrawer from './SettingsDrawer'
+import SensorModal from './SensorModal'
+import { API_BASE, WS_BASE } from './config'
 import './App.css'
 
 function App() {
   const [sessions, setSessions] = useState({})
   const [events, setEvents] = useState([])
   const [connected, setConnected] = useState(false)
-  const [activeTab, setActiveTab] = useState('landing')
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('chameleon_active_tab') || 'landing')
   const [expandedSession, setExpandedSession] = useState(null)
+
+  useEffect(() => {
+    localStorage.setItem('chameleon_active_tab', activeTab)
+  }, [activeTab])
 
   // Commercial SaaS state
   const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem('chameleon_token'))
   const [currentUser, setCurrentUser] = useState(() => localStorage.getItem('chameleon_user') || 'analyst')
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isSensorModalOpen, setIsSensorModalOpen] = useState(false)
   const [selectedSensor, setSelectedSensor] = useState('ALL')
   const [theme, setTheme] = useState(() => localStorage.getItem('chameleon_theme') || 'dark')
   const [settings, setSettings] = useState({ tau_bot: 0.25, tau_human: 1.80, delta_var: 0.08 })
@@ -38,7 +45,7 @@ function App() {
   }, [theme])
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/settings')
+    fetch(`${API_BASE}/api/settings`)
       .then(res => res.json())
       .then(data => setSettings(prev => ({ ...prev, ...data })))
       .catch(() => {})
@@ -46,7 +53,7 @@ function App() {
 
   useEffect(() => {
     const connect = () => {
-      const ws = new WebSocket('ws://localhost:8000/ws')
+      const ws = new WebSocket(`${WS_BASE}/ws`)
       wsRef.current = ws
 
       ws.onopen = () => setConnected(true)
@@ -136,7 +143,11 @@ function App() {
   }
 
   const handleExportCSV = () => {
-    window.open('http://localhost:8000/api/reports/export?format=csv', '_blank')
+    window.open(`${API_BASE}/api/reports/export?format=csv`, '_blank')
+  }
+
+  const handleExportPDF = () => {
+    window.open(`${API_BASE}/api/reports/pdf`, '_blank')
   }
 
   // ── Derived Data ──
@@ -194,6 +205,32 @@ function App() {
     return '#a0aec0'
   }
 
+  const handleDeleteSession = async (sid, e) => {
+    if (e) e.stopPropagation()
+    try {
+      await fetch(`${API_BASE}/api/sessions/${sid}`, { method: 'DELETE' })
+      setSessions(prev => {
+        const next = { ...prev }
+        delete next[sid]
+        return next
+      })
+      if (expandedSession === sid) setExpandedSession(null)
+    } catch (err) {
+      console.error("Delete session failed:", err)
+    }
+  }
+
+  const handleClearAllSessions = async () => {
+    if (!window.confirm("Are you sure you want to clear all session history?")) return
+    try {
+      await fetch(`${API_BASE}/api/sessions/clear`, { method: 'POST' })
+      setSessions({})
+      setExpandedSession(null)
+    } catch (err) {
+      console.error("Clear sessions failed:", err)
+    }
+  }
+
   return (
     <div className="app-shell">
       {/* ── Login Gate ── */}
@@ -211,6 +248,12 @@ function App() {
       <SettingsDrawer
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+      />
+
+      {/* ── Sensor Deployment Modal ── */}
+      <SensorModal
+        isOpen={isSensorModalOpen}
+        onClose={() => setIsSensorModalOpen(false)}
       />
 
       {/* ═══════════ HEADER ═══════════ */}
@@ -244,6 +287,14 @@ function App() {
         </div>
 
         <div className="header-right">
+          <button
+            className="header-btn"
+            style={{ background: 'rgba(124, 58, 237, 0.15)', color: '#c4b5fd', border: '1px solid rgba(124, 58, 237, 0.3)', fontWeight: 600 }}
+            onClick={() => setIsSensorModalOpen(true)}
+          >
+            <Server size={14} /> + Deploy Sensor
+          </button>
+
           <select
             className="header-select"
             value={selectedSensor}
@@ -276,13 +327,16 @@ function App() {
           </button>
 
           <div className="user-chip">
-            <UserCheck />
-            <span>{currentUser}</span>
+            <UserCheck size={14} />
+            <span className="user-email-text">{currentUser}</span>
             {isAuthenticated && (
-              <button className="logout-btn" onClick={handleLogout}>
-                <LogOut />
+              <button className="logout-btn" onClick={handleLogout} title="Log Out">
+                <LogOut size={12} />
               </button>
             )}
+            <div className="user-chip-tooltip">
+              Logged in: <strong>{currentUser}</strong>
+            </div>
           </div>
         </div>
       </header>
@@ -380,7 +434,12 @@ function App() {
                   <h2 className="panel-title">{activeTab === 'live' ? 'Live Threat Radar' : 'Forensics Archive'}</h2>
                   <span className="panel-count">{displaySessions.length}</span>
                 </div>
-                <button className="refresh-btn" onClick={() => window.location.reload()}>REFRESH</button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="refresh-btn" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={handleClearAllSessions}>
+                    <Trash2 size={12} /> CLEAR
+                  </button>
+                  <button className="refresh-btn" onClick={() => window.location.reload()}>REFRESH</button>
+                </div>
               </div>
 
               <div style={{ overflowX: 'auto' }}>
@@ -395,6 +454,7 @@ function App() {
                       <th className="col-cmds center">Cmds</th>
                       <th className="col-iat">Mean IAT</th>
                       <th className="col-mode">Response Mode</th>
+                      <th style={{ width: '30px' }}></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -462,12 +522,15 @@ function App() {
                             <td>
                               <span className={`mode-badge ${mode.cls}`}>{mode.text}</span>
                             </td>
+                            <td onClick={(e) => handleDeleteSession(sid, e)} title="Delete Session">
+                              <Trash2 size={13} style={{ color: '#718096', cursor: 'pointer', transition: 'color 0.2s' }} onMouseEnter={(e) => e.target.style.color = '#ef4444'} onMouseLeave={(e) => e.target.style.color = '#718096'} />
+                            </td>
                           </tr>
 
                           {/* Expanded Detail */}
                           {isExpanded && (
                             <tr className="session-detail-row">
-                              <td colSpan="8">
+                              <td colSpan="9">
                                 <div className="detail-inner">
                                   {/* Left Column */}
                                   <div className="detail-col">

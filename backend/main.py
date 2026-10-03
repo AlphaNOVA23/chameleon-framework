@@ -241,7 +241,7 @@ async def process_log_event(event: dict, db, user_id: str = "admin"):
             "duration_ms": 0
         }
         try:
-            db_sync.get_or_create_session(db, sid, src_ip, conn_ts)
+            db_sync.get_or_create_session(db, sid, src_ip, conn_ts, user_id=user_id)
         except Exception as dbe:
             print(f"DB error (session auto-create): {dbe}")
         
@@ -252,7 +252,7 @@ async def process_log_event(event: dict, db, user_id: str = "admin"):
         s["ip_intel"] = enrich_ip(s["src_ip"])
         s["connected_at"] = event.get("timestamp", "")
         try:
-            db_sync.get_or_create_session(db, sid, s["src_ip"], s["connected_at"])
+            db_sync.get_or_create_session(db, sid, s["src_ip"], s["connected_at"], user_id=user_id)
         except Exception as dbe:
             print(f"DB error (session create): {dbe}")
         await broadcast({
@@ -287,13 +287,13 @@ async def process_log_event(event: dict, db, user_id: str = "admin"):
             s["tier"] = classify(mean_iat, var_iat, len(s["cmd_timestamps"]))
         
         try:
-            db_sync.update_session_metrics(db, sid, s["tier"], mean_iat, var_iat)
+            db_sync.update_session_metrics(db, sid, s["tier"], mean_iat, var_iat, user_id=user_id)
         except Exception as dbe:
             print(f"DB error (metrics): {dbe}")
         
         intent = analyze_command(cmd)
         try:
-            db_sync.add_command(db, sid, cmd, ts_str, intent["tactic"] if intent else None, intent["severity"] if intent else 0)
+            db_sync.add_command(db, sid, cmd, ts_str, intent["tactic"] if intent else None, intent["severity"] if intent else 0, user_id=user_id)
         except Exception as dbe:
             print(f"DB error (command): {dbe}")
         deception = generate_deception_action(s["tier"], intent, cmd)
@@ -332,7 +332,7 @@ async def process_log_event(event: dict, db, user_id: str = "admin"):
         s["closed"] = True
         s["duration_ms"] = dur_ms
         try:
-            db_sync.close_session(db, sid, dur_ms)
+            db_sync.close_session(db, sid, dur_ms, user_id=user_id)
         except Exception as dbe:
             print(f"DB error (close): {dbe}")
         await broadcast({"type": "SESSION_CLOSED", "session_id": sid, "duration_ms": dur_ms})

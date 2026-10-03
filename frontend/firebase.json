@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "chameleon-soc",
     "public": "dist",
     "ignore": [
       "firebase.json",

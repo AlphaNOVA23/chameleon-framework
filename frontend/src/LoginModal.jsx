@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Shield, Lock, User, AlertCircle, ArrowRight } from 'lucide-react'
 import { signInWithGoogle } from './firebase'
+import { API_BASE } from './config'
 import './App.css'
 
 export default function LoginModal({ onLoginSuccess }) {
@@ -17,7 +18,7 @@ export default function LoginModal({ onLoginSuccess }) {
 
     const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login'
     try {
-      const res = await fetch(`http://localhost:8000${endpoint}`, {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
@@ -47,11 +48,16 @@ export default function LoginModal({ onLoginSuccess }) {
       localStorage.setItem('chameleon_user', user.email || user.displayName)
       onLoginSuccess({ token, username: user.email || user.displayName, role: 'admin' })
     } catch (err) {
-      // If Firebase config is default/demo, fallback gracefully to instant demo login
-      console.warn("Google Auth popup skipped/failed:", err)
-      localStorage.setItem('chameleon_token', 'google_demo_token_123')
-      localStorage.setItem('chameleon_user', 'analyst@company.com')
-      onLoginSuccess({ token: 'google_demo_token_123', username: 'analyst@company.com', role: 'admin' })
+      console.error("Google Auth popup failed:", err)
+      if (err.code === 'auth/popup-closed-by-user') {
+        setError('Login cancelled (popup closed).')
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError('Google Provider disabled in Firebase. Enable it under Firebase Console > Authentication > Sign-in method.')
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setError(`Domain ${window.location.hostname} not authorized in Firebase Console > Authentication > Settings > Authorized Domains.`)
+      } else {
+        setError(err.message || 'Google Sign-In failed.')
+      }
     } finally {
       setLoading(false)
     }
