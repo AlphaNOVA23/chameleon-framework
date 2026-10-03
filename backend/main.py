@@ -378,7 +378,7 @@ async def ingest_event(payload: dict = Body(...)):
         
     event = payload.get("event")
     if not event or not isinstance(event, dict):
-        raise HTTPException(status_code=400, detail="Invalid event payload")
+        return {"status": "skipped", "reason": "non-dict event"}
         
     db = SessionLocal()
     try:

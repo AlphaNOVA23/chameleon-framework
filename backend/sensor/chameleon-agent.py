@@ -66,7 +66,8 @@ def tail_file(filename):
                 continue
             try:
                 event = json.loads(line.strip())
-                yield event
+                if isinstance(event, dict):
+                    yield event
             except Exception:
                 continue
 

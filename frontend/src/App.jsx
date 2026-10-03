@@ -161,7 +161,7 @@ function App() {
 
   const activeSessions = sessionList.filter(([, s]) => !s.closed)
   const closedSessions = sessionList.filter(([, s]) => s.closed)
-  const displaySessions = activeTab === 'live' ? activeSessions : closedSessions
+  const displaySessions = activeTab === 'live' ? sessionList : closedSessions
 
   const tierInfo = (t) => {
     switch (t) {
