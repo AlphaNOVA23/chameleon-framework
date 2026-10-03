@@ -56,20 +56,40 @@ def tail_file(filename):
         print(f"[Chameleon-Agent] Waiting for logfile {filename} to exist...")
         while not os.path.exists(filename):
             time.sleep(2)
-            
-    with open(filename, "r", encoding="utf-8", errors="ignore") as f:
-        print(f"[Chameleon-Agent] Syncing and Tailing {filename}...")
-        while True:
-            line = f.readline()
-            if not line:
-                time.sleep(0.5)
-                continue
-            try:
-                event = json.loads(line.strip())
-                if isinstance(event, dict):
-                    yield event
-            except Exception:
-                continue
+
+    f = open(filename, "r", encoding="utf-8", errors="ignore")
+    f.seek(0, os.SEEK_END)
+    print(f"[Chameleon-Agent] Tailing new events from end of {filename}...")
+    file_stat = os.fstat(f.fileno())
+
+    while True:
+        try:
+            path_stat = os.stat(filename)
+        except FileNotFoundError:
+            time.sleep(0.5)
+            continue
+
+        if not os.path.samestat(file_stat, path_stat):
+            f.close()
+            f = open(filename, "r", encoding="utf-8", errors="ignore")
+            file_stat = os.fstat(f.fileno())
+            print(f"[Chameleon-Agent] Reopened replaced logfile {filename} from start")
+            continue
+
+        if path_stat.st_size < f.tell():
+            f.seek(0)
+            print(f"[Chameleon-Agent] Detected truncated logfile {filename}; resuming from start")
+
+        line = f.readline()
+        if not line:
+            time.sleep(0.5)
+            continue
+        try:
+            event = json.loads(line.strip())
+            if isinstance(event, dict):
+                yield event
+        except Exception:
+            continue
 
 def main():
     args = parse_args()
@@ -79,7 +99,10 @@ def main():
     print(f"[Chameleon-Agent] Logfile: {logfile}")
     
     for event in tail_file(logfile):
-        send_event(args.server, args.token, event, user_id=args.user_id)
+        if send_event(args.server, args.token, event, user_id=args.user_id):
+            event_id = event.get("eventid", "")
+            if event_id in ("cowrie.session.connect", "cowrie.command.input", "cowrie.session.closed"):
+                print(f"[Chameleon-Agent] Ingested {event_id} for session {event.get('session', '?')}")
 
 if __name__ == "__main__":
     main()

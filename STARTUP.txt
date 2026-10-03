@@ -2,19 +2,28 @@
   CHAMELEON FRAMEWORK — STARTUP GUIDE
 ========================================
 
-You need 4 terminals open. Run them in this order:
+For the deployed dashboard test, use Terminals 1, 2, and 5. Terminals 3 and 4 are for local development.
 
 
 TERMINAL 1: Cowrie Honeypot (Docker)
 ------------------------------------------------
-docker run -d -p 2222:2222 -v "d:\Code\FYP\chameleon-framework\honeypot\logs2:/cowrie/cowrie-git/var/log/cowrie" -v "d:\Code\FYP\chameleon-framework\honeypot\tty:/cowrie/cowrie-git/var/lib/cowrie/tty" cowrie/cowrie
+docker run -d --name chameleon-honeypot -e COWRIE_HONEYPOT_LOGTYPE=plain -p 22:2222 -v "C:\Users\tanma\cowrie_logs:/cowrie/cowrie-git/var/log/cowrie" cowrie/cowrie:latest
 
-  → Starts Cowrie SSH honeypot on port 2222
+  → Maps attacker-facing host port 22 to Cowrie's container port 2222
+  → Uses plain JSON logging to avoid Cowrie's failing rotating-file handler
   → Must be running FIRST — everything else reads its logs
-  → If the container already exists, use: docker start cowrie
 
 
-TERMINAL 2: Backend (FastAPI + WebSocket Server)
+TERMINAL 2: Sensor Agent (for the deployed Render backend)
+------------------------------------------------
+cd /d D:\Code\FYP\chameleon-framework
+python backend\sensor\chameleon-agent.py --token CHAM_SENS_01_KEY --server https://chameleon-backend-fm38.onrender.com --logfile C:\Users\tanma\cowrie_logs\cowrie.json
+
+  → Tails only new events and posts Cowrie JSON events to the deployed backend
+  → Successful connect, command, and close events are printed here
+
+
+TERMINAL 3: Local Backend (optional; for local frontend development)
 ------------------------------------------------
 cd d:\Code\FYP\chameleon-framework\backend
 python main.py
@@ -24,7 +33,7 @@ python main.py
   → Broadcasts to dashboard via WebSocket
 
 
-TERMINAL 3: Frontend (React + Vite Dev Server)
+TERMINAL 4: Frontend (React + Vite Dev Server)
 ------------------------------------------------
 cd d:\Code\FYP\chameleon-framework\frontend
 npm run dev
@@ -33,14 +42,14 @@ npm run dev
   → Open this URL in your browser
 
 
-TERMINAL 4: Attack Simulation
+TERMINAL 5: SSH Attack Tests
 ------------------------------------------------
-cd d:\Code\FYP\chameleon-framework
+cd /d D:\Code\FYP\chameleon-framework
 
-  Bot attack (0ms delay, classifies as TIER_1_BOT):
-    python bot_attack.py
+  Automated bot over one SSH session (host port 22):
+    python backend\test_ssh_bot.py 22
 
-  Test suite (injects 4 mock sessions without needing Docker):
-    python test_suite.py
-    → 2 Bots + 2 Humans, takes ~40 seconds
-    → Use this if Docker is temporarily unavailable
+  Manual human-style SSH session (host port 22):
+    ssh root@localhost
+    → Enter any password when prompted, then type commands with natural pauses
+    → Type exit to close; the session should move to Forensics Archive

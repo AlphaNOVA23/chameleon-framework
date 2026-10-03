@@ -161,7 +161,7 @@ function App() {
 
   const activeSessions = sessionList.filter(([, s]) => !s.closed)
   const closedSessions = sessionList.filter(([, s]) => s.closed)
-  const displaySessions = activeTab === 'live' ? sessionList : closedSessions
+  const displaySessions = activeTab === 'live' ? activeSessions : closedSessions
 
   const tierInfo = (t) => {
     switch (t) {
@@ -477,6 +477,10 @@ function App() {
                       const isExpanded = expandedSession === sid
                       const intel = s.ip_intel || { flag: '🌐', country: 'Unknown', risk: 'Moderate', threat_score: 50, isp: 'Unresolved' }
                       const chartData = (s.metrics?.recent_iats || []).map((val, idx) => ({ name: `Cmd ${idx + 1}`, iat: val }))
+                      const iatCount = s.metrics?.recent_iats?.length || 0
+                      const jitterVariance = iatCount >= 2
+                        ? `${Number(s.metrics?.variance_iat || 0).toFixed(5)} s²`
+                        : s.commands?.length >= 3 ? 'Insufficient timing data' : 'Need 3+ commands'
 
                       return (
                         <React.Fragment key={sid}>
@@ -550,7 +554,7 @@ function App() {
                                       </div>
                                       <div className="meta-item">
                                         <span className="meta-label">Jitter Var</span>
-                                        <span className="meta-value accent">{s.metrics?.variance_iat > 0 ? s.metrics.variance_iat.toFixed(5) : '—'}</span>
+                                        <span className="meta-value accent">{jitterVariance}</span>
                                       </div>
                                     </div>
 
